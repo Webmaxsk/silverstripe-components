@@ -22,7 +22,7 @@ class ComponentService
     private static $component_paths = [
         'components'
     ];
-    
+
     /**
      * @param array            $data
      * @param SSTemplateParser $parser
@@ -49,7 +49,7 @@ class ComponentService
             $propName = trim($propName, '\'');
             $propName = trim($propName, '"');
             $propValue = $propAndValue[1];
-            
+
             // template errors
             if (strpos($propValue, '<% if') !== false) {
                 throw new SSTemplateParseException(
@@ -85,7 +85,7 @@ class ComponentService
 
         // handle child html
         $php .= self::handleChildHTML($data, $properties, $parser);
-        
+
         // final render call for output php
         $php .= "\$val .= SilverStripe\Core\Injector\Injector::inst()->get('Symbiote\\Components\\ComponentService')->renderComponent('$componentName', \$_props, \$scope);\nunset(\$_props);\n";
 
@@ -171,10 +171,20 @@ class ComponentService
 
             // construct php
             $value = $data['Children']['php'];
+
             $php = "\$_props['children'] = '';\n" . $value;
             $php = str_replace("\$_props = array();\n", "", $php);
             $php = str_replace("unset(\$_props);\n", "", $php);
             $php = str_replace("\$val .=", "\$_props['children'] .=", $php);
+            $php .= "
+            \$dom = Sunra\PhpSimple\HtmlDomParser::str_get_html(\$_props['children']);
+            \$children=\$dom->find('child[id]');
+            foreach (\$children as \$child) {
+                \$_props[\$child->id] = SilverStripe\ORM\FieldType\DBField::create_field('HTMLText', \$child->innertext);
+                \$child->outertext = '';
+            }
+            \$_props['children'] = \$dom->save();
+            ";
             $php .= "\$_props['children'] = SilverStripe\ORM\FieldType\DBField::create_field('HTMLText', \$_props['children']);\n";
 
             return $php;
@@ -295,3 +305,4 @@ class ComponentService
         return $result;
     }
 }
+
